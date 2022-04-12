@@ -1,6 +1,7 @@
 #include "Pad.hpp"
 #include "printf.h"
 #include "irrst.hpp"
+#include "3ds/os.h"
 extern "C"{
 #include "gpio.h"
 }
@@ -10,6 +11,8 @@ extern void _putchar(char character);
     svcOutputDebugString(&character, 1);
 }
 */
+int time_to_end_macro = 0;
+
 void Pad::Initialize()
 {
     if(!m_isinitialized)
@@ -41,11 +44,11 @@ void Pad::ReadFromIO(PadEntry *entry, uint32_t *raw, CirclePadEntry *circlepad, 
     GPIOHID_GetData(0x4001, &val);
     *raw = latest;
     latest = latest & ~(2 * (latest & 0x40) | ((latest & 0x20u) >> 1));
-    if(val & 0x1) {
-        latest |= debugpadkeys;
-        circlepad->x = debugpadstick.x;
-        circlepad->y = debugpadstick.y;
-    }
+    // if(val & 0x1) {
+    //     latest |= debugpadkeys;
+    //     circlepad->x = debugpadstick.x;
+    //     circlepad->y = debugpadstick.y;
+    // }
     latest = m_circlepad.ConvertToHidButtons(circlepad, latest, remapper); // if need be this also sets the circlepad entry to 0
     if(irneeded == 1){
         iruScanInput_();
@@ -56,6 +59,18 @@ void Pad::ReadFromIO(PadEntry *entry, uint32_t *raw, CirclePadEntry *circlepad, 
     entry->pressedpadstate = (latest ^ m_latestkeys) & ~m_latestkeys;
     entry->releasedpadstate = (latest ^ m_latestkeys) & m_latestkeys;
     entry->currpadstate = latest;
+    if(latest & KEY_ZL) {
+        time_to_end_macro = osGetTime() + 120000;
+    }
+
+    if(latest & KEY_ZR) {
+        time_to_end_macro = osGetTime();
+    }
+
+    if (osGetTime() < time_to_end_macro) {
+        latest |= KEY_CPAD_LEFT;
+        latest |= KEY_A;
+    }
     m_latestkeys = latest;
 }
 
